@@ -1,0 +1,31 @@
+{
+    "id": "animetosho-new",
+    "name": "AnimeTosho (NEW)",
+    "version": "1.0.0",
+    "language": "typescript",
+    "type": "anime-torrent-provider",
+    "description": "Integrates Anime Tosho (NEW) as a torrent streaming provider for Seanime.",
+    "author": "Faddix, Island",
+    "icon": "https://raw.githubusercontent.com/faddix/seanime-animetosho-new/main/src/iCN-logo.png",
+    "lang": "multi",
+    "userConfig": {
+        "version": 1,
+        "requiresConfig": true,
+        "fields": [
+            {
+                "type": "text",
+                "name": "apiUrl",
+                "label": "API URL",
+                "default": "https://feed.animetosho.xyz/api"
+            },
+            {
+                "type": "text",
+                "name": "apiKey",
+                "label": "API Key",
+                "description": "Your Anime Tosho API key (300 requests/day)."
+            }
+        ]
+    },
+    "payloadURI": "https://raw.githubusercontent.com/faddix/seanime-animetosho-new/main/animetosho-new.ts",
+    "manifestURI": "https://raw.githubusercontent.com/faddix/seanime-animetosho-new/main/animetosho-new.json"
+}
