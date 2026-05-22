@@ -37,7 +37,7 @@ class Provider {
         return {
             type: "main",
             canSmartSearch: true,
-            smartSearchFilters: ["batch", "episodeNumber", "resolution"],
+            smartSearchFilters: ["batch", "episodeNumber", "resolution", "query"],
             supportsAdult: false,
         }
     }
@@ -125,6 +125,7 @@ class Provider {
         }
 
         if (foundByID) {
+            atTorrents = this.filterByQuery(atTorrents, options.query)
             console.log(`AnimeTosho (NEW): Found ${atTorrents.length} batches by AID`)
             return this.torrentSliceToAnimeTorrentSlice(atTorrents, true, media)
         }
@@ -151,6 +152,7 @@ class Provider {
 
         // Filter out single-file torrents unless it's a movie/single-ep
         allTorrents = allTorrents.filter(t => isMovieOrSingle || t.num_files > 1)
+        allTorrents = this.filterByQuery(allTorrents, options.query)
 
         // Convert and remove duplicates
         const animeTorrents = this.torrentSliceToAnimeTorrentSlice(allTorrents, false, media)
@@ -184,12 +186,13 @@ class Provider {
         }
 
         if (foundByID) {
+            atTorrents = this.filterByQuery(atTorrents, options.query)
             console.log(`AnimeTosho (NEW): Found ${atTorrents.length} episodes by EID`)
             return this.torrentSliceToAnimeTorrentSlice(atTorrents, true, media)
         }
 
         // Fallback: Search by query
-        console.log("AnimeTosho (NEW): Searching episode by query (JSON)")
+        console.log("AnimeTosho (NEW): Searching episode by query")
         const queries = this.buildSmartSearchQueries(options)
         let allTorrents: AnimeToshoTorrent[] = []
 
@@ -210,6 +213,7 @@ class Provider {
 
         // Filter for single-file torrents, unless it's a movie (which might be multi-file)
         allTorrents = allTorrents.filter(t => isMovieOrSingle || t.num_files === 1)
+        allTorrents = this.filterByQuery(allTorrents, options.query)
 
         // Convert and remove duplicates
         const animeTorrents = this.torrentSliceToAnimeTorrentSlice(allTorrents, false, media)
@@ -329,6 +333,24 @@ class Provider {
         const base = this.getJsonFeedUrl()
         const url = `${base}/releases?eid=${encodeURIComponent(String(eid))}&q=${encodeURIComponent(q)}&limit=100`
         return this.fetchTorrents(url)
+    }
+
+    private filterByQuery(torrents: AnimeToshoTorrent[], query: string): AnimeToshoTorrent[] {
+        console.log(`AnimeTosho (NEW): Filtering ${torrents.length} torrents by query "${query}"`)
+        const normalized = (query || "").trim().toLowerCase()
+        if (!normalized) return torrents
+
+        const tokens = normalized.split(/\s+/).filter(Boolean)
+        return torrents.filter(t => {
+            const haystack = [
+                t.title,
+                t.article_title,
+                t.website_url,
+                t.link,
+                t.torrent_url,
+            ].filter(Boolean).join(" ").toLowerCase()
+            return tokens.every(token => haystack.includes(token))
+        })
     }
 
     private buildSmartSearchQueries(opts: AnimeSmartSearchOptions): string[] {
