@@ -534,7 +534,7 @@ class Provider {
         }
 
         return {
-            name: t.series.title,
+            name: t.title,
             date: formattedDate,
             size: t.size_bytes,
             formattedSize: this.bytesToHuman(t.size_bytes),
