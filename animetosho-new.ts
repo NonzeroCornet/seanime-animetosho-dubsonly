@@ -5,8 +5,10 @@ interface AnimeToshoTorrent {
     date_added: string;
     ddl_mirrors: Array<{ label?: string; provider?: string; url?: string }>;
     downloads: number;
+    file_count: number;
     id: number;
     info_hash: string;
+    is_batch: boolean;
     is_multisub_release: boolean;
     leechers: number;
     magnet: string;
@@ -32,7 +34,6 @@ interface AnimeToshoTorrent {
     torrent_url: string;
     updated_at: string;
     urls: { source: string; view: string };
-    num_files?: number;
 }
 
 class Provider {
@@ -108,15 +109,16 @@ class Provider {
         if (options.anidbAID && options.anidbAID > 0) {
             console.log(`AnimeTosho (NEW): Searching batches by AID ${options.anidbAID}`)
             try {
-                const torrents = await this.searchByAID(options.anidbAID, options.resolution || "")
+                const torrents = await this.searchByAID(options.anidbAID, options.query, options.resolution || "")
 
                 // If it's a movie/single-ep, all torrents are considered "batches"
                 if (isMovieOrSingle) {
                     atTorrents = torrents
                 } else {
                     // Otherwise, filter for actual batches (multi-file)
-                    const batchTorrents = torrents.filter(t => (t.num_files ?? 1) > 1)
+                    const batchTorrents = torrents.filter(t => (t.file_count ?? 1) > 1 || t.is_batch || /batch|complete|full|pack|~/i.test(t.title))
                     // If we found batches, use them. If not, use all torrents (e.g., for OVAs released as single files)
+                    if (batchTorrents.length == 0) console.log("AnimeTosho (NEW): No batches found by AID, falling back to all releases for this AID")
                     atTorrents = batchTorrents.length > 0 ? batchTorrents : torrents
                 }
 
@@ -130,19 +132,23 @@ class Provider {
         }
 
         if (foundByID) {
-            atTorrents = this.filterByQuery(atTorrents, options.query)
             console.log(`AnimeTosho (NEW): Found ${atTorrents.length} batches by AID`)
             return this.torrentSliceToAnimeTorrentSlice(atTorrents, true, media)
         }
 
         // Fallback: Search by query
-        console.log("AnimeTosho (NEW): Searching batches by query (JSON)")
+        console.log("AnimeTosho (NEW): Searching batches by query")
         const queries = this.buildSmartSearchQueries(options)
         let allTorrents: AnimeToshoTorrent[] = []
 
         const searchPromises = queries.map(query => {
             const base = this.getJsonFeedUrl()
-            const url = `${base}/search?q=${encodeURIComponent(query)}&limit=100&only_tor=1&order=size-d`
+            const qParts = [query]
+
+            if (!options.query) qParts.push(this.sanitizeTitle(options.query))
+
+            const qParam = qParts.join(" ").trim()
+            const url = `${base}/search?q=${encodeURIComponent(qParam)}&limit=100&only_tor=1&order=size-d`
             return this.fetchTorrents(url)
         })
 
@@ -156,8 +162,7 @@ class Provider {
         }
 
         // Filter out single-file torrents unless it's a movie/single-ep
-        allTorrents = allTorrents.filter(t => isMovieOrSingle || (t.num_files ?? 1) > 1)
-        allTorrents = this.filterByQuery(allTorrents, options.query)
+        allTorrents = allTorrents.filter(t => isMovieOrSingle || (t.file_count ?? 1) > 1 || t.is_batch || /batch|complete|full|pack|~/i.test(t.title))
 
         // Convert and remove duplicates
         const animeTorrents = this.torrentSliceToAnimeTorrentSlice(allTorrents, false, media)
@@ -177,9 +182,9 @@ class Provider {
         if (options.anidbEID && options.anidbEID > 0) {
             console.log(`AnimeTosho (NEW): Searching episode by EID ${options.anidbEID}`)
             try {
-                const torrents = await this.searchByEID(options.anidbEID, options.resolution || "")
+                const torrents = await this.searchByEID(options.anidbEID, options.query, options.resolution || "")
                 // Filter for single-file torrents
-                atTorrents = torrents.filter(t => (t.num_files ?? 1) === 1)
+                atTorrents = torrents.filter(t => (t.file_count ?? 1) === 1 || !t.is_batch)
 
                 if (atTorrents.length > 0) {
                     foundByID = true
@@ -191,7 +196,6 @@ class Provider {
         }
 
         if (foundByID) {
-            atTorrents = this.filterByQuery(atTorrents, options.query)
             console.log(`AnimeTosho (NEW): Found ${atTorrents.length} episodes by EID`)
             return this.torrentSliceToAnimeTorrentSlice(atTorrents, true, media)
         }
@@ -203,7 +207,12 @@ class Provider {
 
         const searchPromises = queries.map(query => {
             const base = this.getJsonFeedUrl()
-            const url = `${base}/search?q=${encodeURIComponent(query)}&limit=100&only_tor=1&qx=1`
+            const qParts = [query]
+
+            if (options.query) qParts.push(this.sanitizeTitle(options.query))
+
+            const qParam = qParts.join(" ").trim()
+            const url = `${base}/search?q=${encodeURIComponent(qParam)}&limit=100&only_tor=1`
             return this.fetchTorrents(url)
         })
 
@@ -217,8 +226,7 @@ class Provider {
         }
 
         // Filter for single-file torrents, unless it's a movie (which might be multi-file)
-        allTorrents = allTorrents.filter(t => isMovieOrSingle || (t.num_files ?? 1) === 1)
-        allTorrents = this.filterByQuery(allTorrents, options.query)
+        allTorrents = allTorrents.filter(t => isMovieOrSingle || (t.file_count ?? 1) === 1 || !t.is_batch)
 
         // Convert and remove duplicates
         const animeTorrents = this.torrentSliceToAnimeTorrentSlice(allTorrents, false, media)
@@ -228,15 +236,15 @@ class Provider {
         return uniqueTorrents
     }
 
-    public async getTorrentInfoHash(torrent: AnimeTorrent): Promise<string> {
-        // InfoHash is provided directly by the API
-        return torrent.infoHash || ""
-    }
+    // public async getTorrentInfoHash(torrent: AnimeTorrent): Promise<string> {
+    //     // InfoHash is provided directly by the API
+    //     return torrent.infoHash || ""
+    // }
 
-    public async getTorrentMagnetLink(torrent: AnimeTorrent): Promise<string> {
-        // MagnetLink is provided directly by the API
-        return torrent.magnetLink || ""
-    }
+    // public async getTorrentMagnetLink(torrent: AnimeTorrent): Promise<string> {
+    //     // MagnetLink is provided directly by the API
+    //     return torrent.magnetLink || ""
+    // }
 
     //+ --------------------------------------------------------------------------------------------------
     // Helpers
@@ -248,7 +256,7 @@ class Provider {
         const res = await fetch(url)
         if (!res.ok) throw new Error(`Failed to fetch torrents: ${res.status} ${res.statusText}`)
 
-        const response = res.json() as any
+        const response = await res.json() as any
 
         const torrents = response.data as AnimeToshoTorrent[]
 
@@ -260,35 +268,36 @@ class Provider {
         })
     }
 
-    private searchByAID(aid: number, quality: string): Promise<AnimeToshoTorrent[]> {
-        const q = this.formatQuality(quality)
+    private searchByAID(aid: number, query: string, quality: string): Promise<AnimeToshoTorrent[]> {
         const base = this.getJsonFeedUrl()
-        const url = `${base}/releases?aid=${encodeURIComponent(String(aid))}&q=${encodeURIComponent(q)}&order=size-d&limit=100`
+
+        const res = this.formatQuality(quality)
+        const q = query ? this.sanitizeTitle(query) : ""
+        const qCombined = [q, res].filter(Boolean).join(" ").trim()
+        console.log(`AnimeTosho (NEW): Searching by AID with quality="${quality}" and query="${query}" (combined: "${qCombined}")`)
+
+        const url =
+            `${base}/releases?aid=${encodeURIComponent(String(aid))}` +
+            (qCombined ? `&q=${encodeURIComponent(qCombined)}` : "") +
+            `&order=size-d&limit=100`
+
         return this.fetchTorrents(url)
     }
 
-    private searchByEID(eid: number, quality: string): Promise<AnimeToshoTorrent[]> {
-        const q = this.formatQuality(quality)
+    private searchByEID(eid: number, query: string, quality: string): Promise<AnimeToshoTorrent[]> {
         const base = this.getJsonFeedUrl()
-        const url = `${base}/releases?eid=${encodeURIComponent(String(eid))}&q=${encodeURIComponent(q)}&limit=100`
+
+        const res = this.formatQuality(quality)
+        const q = query ? this.sanitizeTitle(query) : ""
+        const qCombined = [q, res].filter(Boolean).join(" ").trim()
+        console.log(`AnimeTosho (NEW): Searching by EID with quality="${quality}" and query="${query}" (combined: "${qCombined}")`)
+
+        const url =
+            `${base}/releases?eid=${encodeURIComponent(String(eid))}` +
+            (qCombined ? `&q=${encodeURIComponent(qCombined)}` : "") +
+            `&limit=100`
+
         return this.fetchTorrents(url)
-    }
-
-    private filterByQuery(torrents: AnimeToshoTorrent[], query: string): AnimeToshoTorrent[] {
-        console.log(`AnimeTosho (NEW): Filtering ${torrents.length} torrents by query "${query}"`)
-        const normalized = (query || "").trim().toLowerCase()
-        if (!normalized) return torrents
-
-        const tokens = normalized.split(/\s+/).filter(Boolean)
-        return torrents.filter(t => {
-            const haystack = [
-                t.series.title,
-                t.series.key,
-                t.title,
-                t.torrent_url,
-            ].filter(Boolean).join(" ").toLowerCase()
-            return tokens.every(token => haystack.includes(token))
-        })
     }
 
     private buildSmartSearchQueries(opts: AnimeSmartSearchOptions): string[] {
@@ -297,17 +306,20 @@ class Provider {
 
         let queryStr: string[] = []
         const allTitles = this.getAllTitles(media)
+        const userQuery = this.sanitizeTitle(opts.query)
 
         if (hasSingleEpisode) {
             let str = ""
-            // 1. Build a query string
             const qTitles = `(${allTitles.map(t => this.sanitizeTitle(t)).join(" | ")})`
             str += qTitles
 
-            // 2. Add resolution
-            if (resolution) {
-                str += " " + resolution
+            if (userQuery) {
+                str += " " + userQuery
             }
+            if (resolution) {
+                str += " " + this.formatQuality(resolution)
+            }
+
             queryStr = [str]
 
         } else {
@@ -316,60 +328,71 @@ class Provider {
                 const qEpisodes = this.buildEpisodeString(opts)
 
                 let str = ""
-                // 1. Add titles
                 str += qTitles
-                // 2. Add episodes
+                if (userQuery) {
+                    str += " " + userQuery
+                }
                 if (qEpisodes) {
                     str += " " + qEpisodes
                 }
-                // 3. Add resolution
                 if (resolution) {
-                    str += " " + resolution
+                    str += " " + this.formatQuality(resolution)
                 }
 
                 queryStr.push(str)
 
-                // If we can also search for absolute episodes
                 if (media.absoluteSeasonOffset && media.absoluteSeasonOffset > 0) {
                     const metadata = $habari.parse(media.romajiTitle || "")
                     let absoluteQueryStr = metadata.title || ""
 
                     const ep = episodeNumber + media.absoluteSeasonOffset
-                    absoluteQueryStr += ` ("${ep}"|"e${ep}"|"ep${ep}")`
+                    absoluteQueryStr += ` ("${ep}"|"e${ep}"|"ep${ep}"|"${this.zeropad(ep)}")`
 
                     if (resolution) {
-                        absoluteQueryStr += " " + resolution
+                        absoluteQueryStr += " " + this.formatQuality(resolution)
                     }
-                    // Combine original query with absolute query
+                    if (userQuery) {
+                        absoluteQueryStr += " " + userQuery
+                    }
+
                     queryStr = [`(${absoluteQueryStr}) | (${str})`]
                 }
-
             } else { // Batch search
                 let str = `(${media.romajiTitle})`
                 if (media.englishTitle) {
                     str = `(${media.romajiTitle} | ${media.englishTitle})`
                 }
+                if (userQuery) {
+                    str += " " + userQuery
+                }
                 str += " " + this.buildBatchGroup(media)
                 if (resolution) {
-                    str += " " + resolution
+                    str += " " + this.formatQuality(resolution)
                 }
                 queryStr = [str]
             }
         }
 
+        // NEW API DOESN'T SUPPORT S0 SEARCHING
         // Add "-S0" variant for each query (as in Go code)
+        // const finalQueries: string[] = []
+        // for (const q of queryStr) {
+        //     finalQueries.push(q)
+        //     finalQueries.push(q + " -S0")
+        // }
         const finalQueries: string[] = []
-        for (const q of queryStr) {
-            finalQueries.push(q)
-            finalQueries.push(q + " -S0")
-        }
+        for (const q of queryStr) finalQueries.push(q)
 
         return finalQueries
     }
 
     private formatQuality(quality: string): string {
         if (!quality) return ""
-        return quality.replace(/p$/i, "")
+        const resNum = quality.replace(/[^\d]/g, "") // "1080p" -> "1080"
+        if (!resNum) return quality
+
+        // q = "1080 1080p WEB1080 WEB1080p BD1080 BD1080p"
+        return `(${resNum}|${resNum}p|WEB${resNum}|WEB${resNum}p|BD${resNum}|BD${resNum}p)`
     }
 
     private sanitizeTitle(t: string): string {
@@ -394,8 +417,8 @@ class Provider {
     private buildEpisodeString(opts: AnimeSmartSearchOptions): string {
         if (opts.episodeNumber === -1) return ""
         const pEp = this.zeropad(opts.episodeNumber)
-        // e.g. ("01"|"e1") -S0
-        return `("${pEp}"|"e${opts.episodeNumber}") -S0`
+        // e.g. ("05"|"e5"|"ep5"|"05")
+        return `("${pEp}"|"e${opts.episodeNumber}"|"ep${opts.episodeNumber}"|"${this.zeropad(opts.episodeNumber)}")`
     }
 
     private buildBatchGroup(media: AnimeSmartSearchOptions["media"]): string {
@@ -404,6 +427,8 @@ class Provider {
             `"${this.zeropad(1)} - ${this.zeropad(epCount)}"`,
             `"${this.zeropad(1)} ~ ${this.zeropad(epCount)}"`,
             `"Batch"`,
+            `"Full"`,
+            `"Pack"`,
             `"Complete"`,
             `"+ OVA"`,
             `"+ Specials"`,
@@ -412,15 +437,6 @@ class Provider {
             `"Parts"`,
         ]
         return `(${parts.join("|")})`
-    }
-
-    private extractSeasonNumber(title: string): [number, string] {
-        const match = title.match(/\b(season|s)\s*(\d{1,2})\b/i)
-        if (match && match[2]) {
-            const cleanTitle = title.replace(match[0], "").trim()
-            return [parseInt(match[2]), cleanTitle]
-        }
-        return [0, title]
     }
 
     private buildTitleString(opts: AnimeSmartSearchOptions): string {
@@ -500,6 +516,15 @@ class Provider {
         return qTitles
     }
 
+    private extractSeasonNumber(title: string): [number, string] {
+        const match = title.match(/\b(season|s)\s*(\d{1,2})\b/i)
+        if (match && match[2]) {
+            const cleanTitle = title.replace(match[0], "").trim()
+            return [parseInt(match[2]), cleanTitle]
+        }
+        return [0, title]
+    }
+
     private torrentSliceToAnimeTorrentSlice(torrents: AnimeToshoTorrent[],
         confirmed: boolean,
         media: AnimeSmartSearchOptions["media"] | null,
@@ -516,7 +541,7 @@ class Provider {
 
         const formattedDate = t.date_added || new Date(0).toISOString()
 
-        const isBatch = (t.num_files ?? 1) > 1
+        const isBatch = (t.file_count ?? 1) > 1 || t.is_batch || /batch|complete|full|pack|~/i.test(t.title)
         let episode = -1
 
         if (metadata.episode_number && metadata.episode_number.length === 1) {
