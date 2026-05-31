@@ -143,12 +143,7 @@ class Provider {
 
         const searchPromises = queries.map(query => {
             const base = this.getJsonFeedUrl()
-            const qParts = [query]
-
-            if (!options.query) qParts.push(this.sanitizeTitle(options.query))
-
-            const qParam = qParts.join(" ").trim()
-            const url = `${base}/search?q=${encodeURIComponent(qParam)}&limit=100&only_tor=1&order=size-d`
+            const url = `${base}/search?q=${encodeURIComponent(query)}&limit=100&only_tor=1&order=size-d`
             return this.fetchTorrents(url)
         })
 
@@ -207,12 +202,7 @@ class Provider {
 
         const searchPromises = queries.map(query => {
             const base = this.getJsonFeedUrl()
-            const qParts = [query]
-
-            if (options.query) qParts.push(this.sanitizeTitle(options.query))
-
-            const qParam = qParts.join(" ").trim()
-            const url = `${base}/search?q=${encodeURIComponent(qParam)}&limit=100&only_tor=1`
+            const url = `${base}/search?q=${encodeURIComponent(query)}&limit=100&only_tor=1&qx=1`
             return this.fetchTorrents(url)
         })
 
@@ -274,7 +264,6 @@ class Provider {
         const res = this.formatQuality(quality)
         const q = query ? this.sanitizeTitle(query) : ""
         const qCombined = [q, res].filter(Boolean).join(" ").trim()
-        console.log(`AnimeTosho (NEW): Searching by AID with quality="${quality}" and query="${query}" (combined: "${qCombined}")`)
 
         const url =
             `${base}/releases?aid=${encodeURIComponent(String(aid))}` +
@@ -290,7 +279,6 @@ class Provider {
         const res = this.formatQuality(quality)
         const q = query ? this.sanitizeTitle(query) : ""
         const qCombined = [q, res].filter(Boolean).join(" ").trim()
-        console.log(`AnimeTosho (NEW): Searching by EID with quality="${quality}" and query="${query}" (combined: "${qCombined}")`)
 
         const url =
             `${base}/releases?eid=${encodeURIComponent(String(eid))}` +
@@ -345,14 +333,14 @@ class Provider {
                     const metadata = $habari.parse(media.romajiTitle || "")
                     let absoluteQueryStr = metadata.title || ""
 
+                    if (userQuery) {
+                        absoluteQueryStr += " " + userQuery
+                    }
                     const ep = episodeNumber + media.absoluteSeasonOffset
                     absoluteQueryStr += ` ("${ep}"|"e${ep}"|"ep${ep}"|"${this.zeropad(ep)}")`
 
                     if (resolution) {
                         absoluteQueryStr += " " + this.formatQuality(resolution)
-                    }
-                    if (userQuery) {
-                        absoluteQueryStr += " " + userQuery
                     }
 
                     queryStr = [`(${absoluteQueryStr}) | (${str})`]
