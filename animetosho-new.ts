@@ -116,8 +116,8 @@ class Provider {
                     atTorrents = torrents
                 } else {
                     // Otherwise, filter for actual batches (multi-file)
-                    // Also include titles that don't contain episode markers.
-                    const batchTorrents = torrents.filter(t => (t.file_count ?? 1) > 1 || t.is_batch || /batch|complete|full|pack|~|season/i.test(t.title) || !/(?:(?:S\d{1,2}E\d{1,3}(?:v\d+)?|S\d{1,2}x\d{1,3}(?:v\d+)?|EP?\.?\s*\d{1,3}(?:v\d+)?|E\d{1,3}(?:v\d+)?|episode)\b|-\s*\d{1,3}\b)/i.test(t.title))
+                    // Also filter out titles that contain episode markers.
+                    const batchTorrents = torrents.filter(t => isMovieOrSingle || this.isBatchTorrent(t))
 
                     // If we found batches, use them. If not, use all torrents (e.g., for OVAs released as single files)
                     if (batchTorrents.length == 0) console.log("AnimeTosho (NEW): No batches found by AID, falling back to all releases for this AID")
@@ -159,8 +159,8 @@ class Provider {
         }
 
         // Filter out single-file torrents unless it's a movie/single-ep.
-        // Also include titles that don't contain episode markers.
-        allTorrents = allTorrents.filter(t => isMovieOrSingle || (t.file_count ?? 1) > 1 || t.is_batch || /batch|complete|full|pack|~|season/i.test(t.title) || !/(?:(?:S\d{1,2}E\d{1,3}(?:v\d+)?|S\d{1,2}x\d{1,3}(?:v\d+)?|EP?\.?\s*\d{1,3}(?:v\d+)?|E\d{1,3}(?:v\d+)?|episode)\b|-\s*\d{1,3}\b)/i.test(t.title))
+        // Also filter out titles that contain episode markers.
+        allTorrents = allTorrents.filter(t => isMovieOrSingle || this.isBatchTorrent(t))
 
         // Convert and remove duplicates
         const animeTorrents = this.torrentSliceToAnimeTorrentSlice(allTorrents, false, media)
@@ -229,15 +229,15 @@ class Provider {
         return uniqueTorrents
     }
 
-    // public async getTorrentInfoHash(torrent: AnimeTorrent): Promise<string> {
-    //     // InfoHash is provided directly by the API
-    //     return torrent.infoHash || ""
-    // }
+    public async getTorrentInfoHash(torrent: AnimeTorrent): Promise<string> {
+        // InfoHash is provided directly by the API
+        return torrent.infoHash || ""
+    }
 
-    // public async getTorrentMagnetLink(torrent: AnimeTorrent): Promise<string> {
-    //     // MagnetLink is provided directly by the API
-    //     return torrent.magnetLink || ""
-    // }
+    public async getTorrentMagnetLink(torrent: AnimeTorrent): Promise<string> {
+        // MagnetLink is provided directly by the API
+        return torrent.magnetLink || ""
+    }
 
     //+ --------------------------------------------------------------------------------------------------
     // Helpers
@@ -405,6 +405,10 @@ class Provider {
         return String(v).padStart(2, "0")
     }
 
+    private isBatchTorrent(t: AnimeToshoTorrent): boolean {
+        return (t.file_count ?? 1) > 1 || t.is_batch || (/batch|complete|full|pack|~|season|S\d{1,2}/i.test(t.title) && !/(?:(?:S\d{1,2}E\d{1,3}(?:v\d+)?|S\d{1,2}x\d{1,3}(?:v\d+)?|EP?\.?\s*\d{1,3}(?:v\d+)?|E\d{1,3}(?:v\d+)?|episode)\b|-\s*\d{1,3}\b)/i.test(t.title))
+    }
+
     private buildEpisodeString(opts: AnimeSmartSearchOptions): string {
         if (opts.episodeNumber === -1) return ""
         const pEp = this.zeropad(opts.episodeNumber)
@@ -533,7 +537,8 @@ class Provider {
 
         const formattedDate = t.date_added || new Date(0).toISOString()
 
-        const isBatch = (t.file_count ?? 1) > 1 || t.is_batch || /batch|complete|full|pack|~/i.test(t.title)
+        const isBatch = this.isBatchTorrent(t)
+
         let episode = -1
 
         if (metadata.episode_number && metadata.episode_number.length === 1) {
