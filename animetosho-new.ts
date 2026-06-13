@@ -64,8 +64,9 @@ class Provider {
             return this.torrentSliceToAnimeTorrentSlice(torrents, false, null)
         }
         catch (error) {
-            console.error("AnimeTosho (NEW): Error fetching latest: " + (error as Error).message)
-            return []
+            const e = error as Error
+            console.error("AnimeTosho (NEW): Error fetching latest: " + e.message)
+            throw e
         }
     }
 
@@ -79,8 +80,9 @@ class Provider {
             return this.torrentSliceToAnimeTorrentSlice(torrents, false, options.media)
         }
         catch (error) {
-            console.error("AnimeTosho (NEW): Error searching: " + (error as Error).message)
-            return []
+            const e = error as Error
+            console.error("AnimeTosho (NEW): Error searching: " + e.message)
+            throw e
         }
     }
 
@@ -94,8 +96,9 @@ class Provider {
             return this.smartSearchSingleEpisode(options)
         }
         catch (error) {
-            console.error("AnimeTosho (NEW): Error in smart search: " + (error as Error).message)
-            return []
+            const e = error as Error
+            console.error("AnimeTosho (NEW): Error in smart search: " + e.message)
+            throw e
         }
     }
 
@@ -139,7 +142,7 @@ class Provider {
         }
 
         // Fallback: Search by query
-        console.log("AnimeTosho (NEW): Searching batches by query")
+        console.log("AnimeTosho (NEW): Fallback: Searching batches by query")
         const queries = this.buildSmartSearchQueries(options)
         let allTorrents: AnimeToshoTorrent[] = []
 
@@ -154,8 +157,9 @@ class Provider {
             allTorrents = results.flat()
         }
         catch (error) {
-            console.error("AnimeTosho (NEW): Batch query search failed: " + (error as Error).message)
-            return []
+            const e = error as Error
+            console.error("AnimeTosho (NEW): Batch query search failed: " + e.message)
+            throw e
         }
 
         // Filter out single-file torrents unless it's a movie/single-ep.
@@ -199,7 +203,7 @@ class Provider {
         }
 
         // Fallback: Search by query
-        console.log("AnimeTosho (NEW): Searching episode by query")
+        console.log("AnimeTosho (NEW): Fallback: Searching episode by query")
         const queries = this.buildSmartSearchQueries(options)
         let allTorrents: AnimeToshoTorrent[] = []
 
@@ -214,8 +218,9 @@ class Provider {
             allTorrents = results.flat()
         }
         catch (error) {
-            console.error("AnimeTosho (NEW): Episode query search failed: " + (error as Error).message)
-            return []
+            const e = error as Error
+            console.error("AnimeTosho (NEW): Episode query search failed: " + e.message)
+            throw e
         }
 
         // Filter for single-file torrents, unless it's a movie (which might be multi-file)
