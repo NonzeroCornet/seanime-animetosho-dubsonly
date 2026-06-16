@@ -236,7 +236,7 @@ class Provider {
 
     public async getTorrentInfoHash(torrent: AnimeTorrent): Promise<string> {
         // InfoHash is provided directly by the API
-        return torrent.infoHash || ""
+        return torrent.infoHash ? torrent.infoHash.toLowerCase() : ""
     }
 
     public async getTorrentMagnetLink(torrent: AnimeTorrent): Promise<string> {
@@ -571,7 +571,7 @@ class Provider {
             link: t.urls.view,
             downloadUrl: t.torrent_url,
             magnetLink: t.magnet,
-            infoHash: t.info_hash,
+            infoHash: t.info_hash ? t.info_hash.toLowerCase() : "",
             resolution: metadata.video_resolution || t.resolution || "",
             isBatch: isBatch,
             episodeNumber: episode,
