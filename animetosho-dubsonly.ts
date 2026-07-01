@@ -57,7 +57,7 @@ class Provider {
 
     public async getLatest(): Promise<AnimeTorrent[]> {
         try {
-            console.log("AnimeTosho (NEW): Fetching latest torrents")
+            console.log("AnimeTosho DubsOnly: Fetching latest torrents")
             const base = this.getJsonFeedUrl()
             const url = `${base}/releases?limit=100`
             const torrents = await this.fetchTorrents(url)
@@ -65,7 +65,7 @@ class Provider {
         }
         catch (error) {
             const e = error as Error
-            console.error("AnimeTosho (NEW): Error fetching latest: " + e.message)
+            console.error("AnimeTosho DubsOnly: Error fetching latest: " + e.message)
             throw e
         }
     }
@@ -73,7 +73,7 @@ class Provider {
     public async search(options: AnimeSearchOptions): Promise<AnimeTorrent[]> {
         try {
             const q = this.sanitizeTitle(options.query)
-            console.log(`AnimeTosho (NEW): Searching for "${q}"`)
+            console.log(`AnimeTosho DubsOnly: Searching for "${q}"`)
             const base = this.getJsonFeedUrl()
             const url = `${base}/search?q=${encodeURIComponent(q)}&limit=100`
             const torrents = await this.fetchTorrents(url)
@@ -81,7 +81,7 @@ class Provider {
         }
         catch (error) {
             const e = error as Error
-            console.error("AnimeTosho (NEW): Error searching: " + e.message)
+            console.error("AnimeTosho DubsOnly: Error searching: " + e.message)
             throw e
         }
     }
@@ -89,15 +89,15 @@ class Provider {
     public async smartSearch(options: AnimeSmartSearchOptions): Promise<AnimeTorrent[]> {
         try {
             if (options.batch) {
-                console.log("AnimeTosho (NEW): Smart searching for batches...")
+                console.log("AnimeTosho DubsOnly: Smart searching for batches...")
                 return this.smartSearchBatch(options)
             }
-            console.log(`AnimeTosho (NEW): Smart searching for episode ${options.episodeNumber}...`)
+            console.log(`AnimeTosho DubsOnly: Smart searching for episode ${options.episodeNumber}...`)
             return this.smartSearchSingleEpisode(options)
         }
         catch (error) {
             const e = error as Error
-            console.error("AnimeTosho (NEW): Error in smart search: " + e.message)
+            console.error("AnimeTosho DubsOnly: Error in smart search: " + e.message)
             throw e
         }
     }
@@ -110,7 +110,7 @@ class Provider {
         const isMovieOrSingle = media.format === "MOVIE" || media.episodeCount === 1
 
         if (options.anidbAID && options.anidbAID > 0) {
-            console.log(`AnimeTosho (NEW): Searching batches by AID ${options.anidbAID}`)
+            console.log(`AnimeTosho DubsOnly: Searching batches by AID ${options.anidbAID}`)
             try {
                 const torrents = await this.searchByAID(options.anidbAID, options.query, options.resolution || "")
 
@@ -123,7 +123,7 @@ class Provider {
                     const batchTorrents = torrents.filter(t => isMovieOrSingle || this.isBatchTorrent(t))
 
                     // If we found batches, use them. If not, use all torrents (e.g., for OVAs released as single files)
-                    if (batchTorrents.length == 0) console.log("AnimeTosho (NEW): No batches found by AID, falling back to all releases for this AID")
+                    if (batchTorrents.length == 0) console.log("AnimeTosho DubsOnly: No batches found by AID, falling back to all releases for this AID")
                     atTorrents = batchTorrents.length > 0 ? batchTorrents : torrents
                 }
 
@@ -132,17 +132,17 @@ class Provider {
                 }
             }
             catch (e) {
-                console.warn("AnimeTosho (NEW): searchByAID failed: " + (e as Error).message)
+                console.warn("AnimeTosho DubsOnly: searchByAID failed: " + (e as Error).message)
             }
         }
 
         if (foundByID) {
-            console.log(`AnimeTosho (NEW): Found ${atTorrents.length} batches by AID`)
+            console.log(`AnimeTosho DubsOnly: Found ${atTorrents.length} batches by AID`)
             return this.torrentSliceToAnimeTorrentSlice(atTorrents, true, media)
         }
 
         // Fallback: Search by query
-        console.log("AnimeTosho (NEW): Fallback: Searching batches by query")
+        console.log("AnimeTosho DubsOnly: Fallback: Searching batches by query")
         const queries = this.buildSmartSearchQueries(options)
         let allTorrents: AnimeToshoTorrent[] = []
 
@@ -158,7 +158,7 @@ class Provider {
         }
         catch (error) {
             const e = error as Error
-            console.error("AnimeTosho (NEW): Batch query search failed: " + e.message)
+            console.error("AnimeTosho DubsOnly: Batch query search failed: " + e.message)
             throw e
         }
 
@@ -170,7 +170,7 @@ class Provider {
         const animeTorrents = this.torrentSliceToAnimeTorrentSlice(allTorrents, false, media)
         const uniqueTorrents = [...new Map(animeTorrents.map(t => [t.link, t])).values()]
 
-        console.log(`AnimeTosho (NEW): Found ${uniqueTorrents.length} batches by query`)
+        console.log(`AnimeTosho DubsOnly: Found ${uniqueTorrents.length} batches by query`)
         return uniqueTorrents
     }
 
@@ -182,7 +182,7 @@ class Provider {
         const isMovieOrSingle = media.format === "MOVIE" || media.episodeCount === 1
 
         if (options.anidbEID && options.anidbEID > 0) {
-            console.log(`AnimeTosho (NEW): Searching episode by EID ${options.anidbEID}`)
+            console.log(`AnimeTosho DubsOnly: Searching episode by EID ${options.anidbEID}`)
             try {
                 const torrents = await this.searchByEID(options.anidbEID, options.query, options.resolution || "")
                 // Filter for single-file torrents
@@ -193,17 +193,17 @@ class Provider {
                 }
             }
             catch (e) {
-                console.warn("AnimeTosho (NEW): searchByEID failed: " + (e as Error).message)
+                console.warn("AnimeTosho DubsOnly: searchByEID failed: " + (e as Error).message)
             }
         }
 
         if (foundByID) {
-            console.log(`AnimeTosho (NEW): Found ${atTorrents.length} episodes by EID`)
+            console.log(`AnimeTosho DubsOnly: Found ${atTorrents.length} episodes by EID`)
             return this.torrentSliceToAnimeTorrentSlice(atTorrents, true, media)
         }
 
         // Fallback: Search by query
-        console.log("AnimeTosho (NEW): Fallback: Searching episode by query")
+        console.log("AnimeTosho DubsOnly: Fallback: Searching episode by query")
         const queries = this.buildSmartSearchQueries(options)
         let allTorrents: AnimeToshoTorrent[] = []
 
@@ -219,7 +219,7 @@ class Provider {
         }
         catch (error) {
             const e = error as Error
-            console.error("AnimeTosho (NEW): Episode query search failed: " + e.message)
+            console.error("AnimeTosho DubsOnly: Episode query search failed: " + e.message)
             throw e
         }
 
@@ -230,7 +230,7 @@ class Provider {
         const animeTorrents = this.torrentSliceToAnimeTorrentSlice(allTorrents, false, media)
         const uniqueTorrents = [...new Map(animeTorrents.map(t => [t.link, t])).values()]
 
-        console.log(`AnimeTosho (NEW): Found ${uniqueTorrents.length} episodes by query`)
+        console.log(`AnimeTosho DubsOnly: Found ${uniqueTorrents.length} episodes by query`)
         return uniqueTorrents
     }
 
@@ -249,7 +249,7 @@ class Provider {
     //+ --------------------------------------------------------------------------------------------------
 
     private async fetchTorrents(url: string): Promise<AnimeToshoTorrent[]> {
-        console.log(`AnimeTosho (NEW): Fetching from ${url}`)
+        console.log(`AnimeTosho DubsOnly: Fetching from ${url}`)
 
         const res = await fetch(url)
         if (!res.ok) throw new Error(`Failed to fetch torrents: ${res.status} ${res.statusText}`)
@@ -526,10 +526,26 @@ class Provider {
         return [0, title]
     }
 
+    private isDubTorrent(t: AnimeToshoTorrent): boolean {
+        const m = $habari.parse(t.title)
+    
+        return (
+            m.audio_term?.some(a => /dual|multi/i.test(a)) ||
+            m.subtitles?.some(s => /dub/i.test(s)) ||
+            m.language?.some(l => /english/i.test(l))
+        ) ?? false
+    }
+
     private torrentSliceToAnimeTorrentSlice(torrents: AnimeToshoTorrent[],
         confirmed: boolean,
         media: AnimeSmartSearchOptions["media"] | null,
     ): AnimeTorrent[] {
+        const dubs = torrents.filter(t => this.isDubTorrent(t))
+
+        if (dubs.length > 0) {
+            torrents = dubs
+        }
+      
         return torrents.map(torrent => {
             const t = this.toAnimeTorrent(torrent, media)
             t.confirmed = confirmed
