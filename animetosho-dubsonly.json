@@ -1,0 +1,25 @@
+{
+    "id": "animetosho-dubsonly",
+    "name": "AnimeTosho Dubs Only",
+    "version": "2.3.5",
+    "language": "typescript",
+    "type": "anime-torrent-provider",
+    "description": "Integrates Anime Tosho as a torrent streaming provider for Seanime. Only returns dubbed items (unless there are no dubbed items, at which point subs are returned).",
+    "author": "NonzeroCornet34",
+    "icon": "https://raw.githubusercontent.com/NonzeroCornet/seanime-animetosho-dubsonly/main/src/animetosho-dubsonly-logo.png",
+    "lang": "multi",
+    "userConfig": {
+        "version": 1,
+        "requiresConfig": false,
+        "fields": [
+            {
+                "type": "text",
+                "name": "jsonURL",
+                "label": "Feed URL",
+                "default": "https://feed.animetosho.xyz/json/v1"
+            }
+        ]
+    },
+    "payloadURI": "https://raw.githubusercontent.com/NonzeroCornet/seanime-animetosho-dubsonly/main/animetosho-dubsonly.ts",
+    "manifestURI": "https://raw.githubusercontent.com/NonzeroCornet/seanime-animetosho-dubsonly/main/animetosho-dubsonly.json"
+}
